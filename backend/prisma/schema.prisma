@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+   provider = "prisma-client-js"
+}
+
+datasource db {
+   provider = "mysql"
+   url      = env("DATABASE_URL")
+}
+
+model Publication {
+   id          Int     @id @default(autoincrement())
+   description String? @db.Text
+   image       String?
+   user        User    @relation(fields: [user_id], references: [id])
+   user_id     Int
+   likes       Likes[]
+
+   created_at DateTime @default(now())
+   updated_at DateTime @default(now())
+
+   @@map("publications")
+}
+
+model User {
+   id           Int           @id @default(autoincrement())
+   name         String
+   email        String        @unique
+   password     String       
+   description  String?       @db.Text
+   avatar       String?
+   username     String        @unique
+   publications Publication[]
+   likes        Likes[]
+
+   followed_by Follows[] @relation("follower")
+   followings  Follows[] @relation("following")
+
+   created_at DateTime @default(now())
+   updated_at DateTime @default(now())
+
+   @@map("users")
+}
+
+model Follows {
+   follower     User @relation("follower", fields: [follower_id], references: [id])
+   follower_id  Int
+   following    User @relation("following", fields: [following_id], references: [id])
+   following_id Int
+
+   @@id([follower_id, following_id])
+   @@index([follower_id])
+   @@index([following_id])
+   @@map("follows")
+}
+
+model Likes {
+   publication    Publication @relation(fields: [publication_id], references: [id])
+   publication_id Int
+   user           User        @relation(fields: [user_id], references: [id])
+   user_id        Int
+
+   created_at DateTime @default(now())
+
+   @@id([publication_id, user_id])
+   @@index([publication_id])
+   @@index([user_id])
+   @@map("likes")
+}
