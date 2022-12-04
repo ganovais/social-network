@@ -133,7 +133,7 @@ export class UserService {
       }
 
       if (user.avatar) {
-         await deleteFile('avatar', user.avatar);
+         await deleteFile("avatar", user.avatar);
       }
 
       const updatedUser = await this.prisma.user.update({
@@ -146,5 +146,122 @@ export class UserService {
       this.exclude(updatedUser, "password");
 
       return updatedUser;
+   }
+
+   async getMyFriends(userId: number) {
+      return this.prisma.user.findUnique({
+         where: { id: userId },
+         include: {
+            followings: {
+               include: { follower: true },
+               where: {
+                  OR: [
+                     {
+                        following_id: userId,
+                     },
+                     {
+                        follower_id: userId,
+                     },
+                  ],
+               },
+            },
+            followed_by: {
+               include: { following: true },
+               where: {
+                  OR: [
+                     {
+                        following_id: userId,
+                     },
+                     {
+                        follower_id: userId,
+                     },
+                  ],
+               },
+            },
+         },
+      });
+   }
+
+   async getUsers(userId: number, username: string) {
+      return this.prisma.user.findMany({
+         where: {
+            username: {
+               contains: String(username),
+            },
+            id: {
+               not: userId,
+            },
+         },
+      });
+   }
+
+   async addFriend(friendId: number, userId: number) {
+      try {
+         await this.prisma.follows.create({
+            data: {
+               follower_id: userId,
+               following_id: friendId,
+            },
+         });
+      } catch (error: any) {
+         if (error.code == "P2002") {
+            return {
+               error: true,
+               message: "Vocês já são amigos",
+            };
+         }
+      }
+   }
+
+   async removeFriend(friendId: number, userId: number) {
+      try {
+         await this.prisma.follows.deleteMany({
+            where: {
+               OR: [
+                  {
+                     follower_id: userId,
+                     following_id: friendId,
+                  },
+                  {
+                     follower_id: friendId,
+                     following_id: userId,
+                  },
+               ],
+            },
+         });
+      } catch (error: any) {
+         if (error.code == "P2002") {
+            return {
+               error: true,
+            };
+         }
+      }
+   }
+
+   async getLikes(user_id: number) {
+      return this.prisma.likes.findMany({
+         where: {
+            user_id,
+         },
+      });
+   }
+
+   async profile(userId: number, username: string) {
+      return this.prisma.user.findUnique({
+         where: { username },
+         include: {
+            publications: { include: { likes: true, user: true } },
+            followings: {
+               where: {
+                  follower_id: userId,
+               },
+            },
+            followed_by: {
+               where: {
+                  following_id: userId,
+               },
+            },
+         },
+      });
    }
 }
